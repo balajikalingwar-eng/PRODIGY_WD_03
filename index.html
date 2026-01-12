@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tic Tac Toe – Smart AI</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to right, #89f7fe, #66a6ff);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+h1 {
+    color: white;
+    text-shadow: 2px 2px 4px #000;
+}
+
+.mode-buttons button {
+    margin: 5px;
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.scoreboard {
+    background: #ffffffcc;
+    padding: 10px 25px;
+    border-radius: 15px;
+    margin: 10px;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(90px, 120px));
+    gap: 10px;
+}
+
+.cell {
+    background: #ffffffcc;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: clamp(36px, 5vw, 50px);
+    font-weight: bold;
+    border-radius: 15px;
+    cursor: pointer;
+}
+
+.cell:hover {
+    background: #e3f4ff;
+}
+
+.win {
+    background: #8eff8e !important;
+    animation: glow 0.6s infinite alternate;
+}
+
+@keyframes glow {
+    from { box-shadow: 0 0 10px #78ff78; }
+    to { box-shadow: 0 0 20px #43ff43; }
+}
+
+.reset {
+    margin-top: 15px;
+    padding: 12px 25px;
+    background: #4c8bf5;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* Popup */
+#winnerMessage {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    align-items: center;
+    justify-content: center;
+}
+
+.popup {
+    background: white;
+    padding: 30px 40px;
+    border-radius: 20px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Tic Tac Toe</h1>
+
+<div class="mode-buttons">
+    <button onclick="setMode('pvp')">2 Players</button>
+    <button onclick="setMode('pvai')">Play vs AI</button>
+</div>
+
+<div class="scoreboard">
+    X Wins: <span id="xWins">0</span> |
+    O Wins: <span id="oWins">0</span> |
+    Draws: <span id="draws">0</span>
+</div>
+
+<div class="board">
+    <div class="cell" data-i="0"></div>
+    <div class="cell" data-i="1"></div>
+    <div class="cell" data-i="2"></div>
+    <div class="cell" data-i="3"></div>
+    <div class="cell" data-i="4"></div>
+    <div class="cell" data-i="5"></div>
+    <div class="cell" data-i="6"></div>
+    <div class="cell" data-i="7"></div>
+    <div class="cell" data-i="8"></div>
+</div>
+
+<button class="reset" onclick="resetGame()">Reset Game</button>
+
+<div id="winnerMessage">
+    <div class="popup">
+        <div id="winnerText"></div><br>
+        <button onclick="closePopup()">OK</button>
+    </div>
+</div>
+
+<script>
+const cells = document.querySelectorAll(".cell");
+const xWinsEl = document.getElementById("xWins");
+const oWinsEl = document.getElementById("oWins");
+const drawsEl = document.getElementById("draws");
+
+let board = ["","","","","","","","",""];
+let currentPlayer = "X";
+let gameActive = true;
+let mode = "";
+
+let xWins = 0, oWins = 0, draws = 0;
+
+const winPatterns = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+];
+
+function setMode(m) {
+    mode = m;
+    resetGame();
+}
+
+cells.forEach(cell => {
+    cell.addEventListener("click", () => {
+        const i = cell.dataset.i;
+        if (!gameActive || board[i] !== "") return;
+        if (mode === "pvai" && currentPlayer === "O") return;
+
+        makeMove(i, currentPlayer);
+
+        if (mode === "pvai" && gameActive) {
+            setTimeout(aiMove, 300);
+        }
+    });
+});
+
+function makeMove(i, player) {
+    board[i] = player;
+    cells[i].textContent = player;
+    if (!checkWinner(player)) {
+        currentPlayer = player === "X" ? "O" : "X";
+    }
+}
+
+/* SMART AI (MINIMAX) */
+function aiMove() {
+    let bestScore = -Infinity;
+    let move;
+
+    for (let i = 0; i < 9; i++) {
+        if (board[i] === "") {
+            board[i] = "O";
+            let score = minimax(board, 0, false);
+            board[i] = "";
+            if (score > bestScore) {
+                bestScore = score;
+                move = i;
+            }
+        }
+    }
+    makeMove(move, "O");
+}
+
+function minimax(newBoard, depth, isMaximizing) {
+    if (checkWinState(newBoard, "O")) return 10 - depth;
+    if (checkWinState(newBoard, "X")) return depth - 10;
+    if (!newBoard.includes("")) return 0;
+
+    if (isMaximizing) {
+        let best = -Infinity;
+        for (let i = 0; i < 9; i++) {
+            if (newBoard[i] === "") {
+                newBoard[i] = "O";
+                best = Math.max(best, minimax(newBoard, depth + 1, false));
+                newBoard[i] = "";
+            }
+        }
+        return best;
+    } else {
+        let best = Infinity;
+        for (let i = 0; i < 9; i++) {
+            if (newBoard[i] === "") {
+                newBoard[i] = "X";
+                best = Math.min(best, minimax(newBoard, depth + 1, true));
+                newBoard[i] = "";
+            }
+        }
+        return best;
+    }
+}
+
+function checkWinState(b, p) {
+    return winPatterns.some(pattern =>
+        pattern.every(i => b[i] === p)
+    );
+}
+
+function checkWinner(player) {
+    for (let p of winPatterns) {
+        if (p.every(i => board[i] === player)) {
+            gameActive = false;
+            p.forEach(i => cells[i].classList.add("win"));
+            player === "X" ? xWins++ : oWins++;
+            updateScore();
+            showPopup(`🎉 ${player} Wins!`);
+            return true;
+        }
+    }
+
+    if (!board.includes("")) {
+        gameActive = false;
+        draws++;
+        updateScore();
+        showPopup("🤝 It's a Draw!");
+    }
+    return false;
+}
+
+function updateScore() {
+    xWinsEl.textContent = xWins;
+    oWinsEl.textContent = oWins;
+    drawsEl.textContent = draws;
+}
+
+function resetGame() {
+    board.fill("");
+    gameActive = true;
+    currentPlayer = "X";
+    cells.forEach(c => {
+        c.textContent = "";
+        c.classList.remove("win");
+    });
+}
+
+function showPopup(text) {
+    document.getElementById("winnerText").textContent = text;
+    document.getElementById("winnerMessage").style.display = "flex";
+}
+
+function closePopup() {
+    document.getElementById("winnerMessage").style.display = "none";
+}
+</script>
+
+</body>
+</html>
